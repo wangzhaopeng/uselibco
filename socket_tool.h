@@ -124,7 +124,7 @@ static int CoSleep(int ms)
 	return ret;
 }
 
-static int WriteSocket(int fd, void *buf, size_t nbyte)
+static int WriteSocket(int fd, const void *buf, size_t nbyte)
 {
 	////return -1 errno 32(EPIPE  Broken pipe,remote close)
 	int ret = write( fd,buf,nbyte );
