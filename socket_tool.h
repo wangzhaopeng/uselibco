@@ -1,6 +1,9 @@
 #ifndef __SOCKET_TOOL_H__
 #define __SOCKET_TOOL_H__
 
+#include <vector>
+#include <deque>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/un.h>
@@ -9,6 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include "co_routine.h"
 
@@ -129,6 +133,104 @@ static int WriteSocket(int fd, const void *buf, size_t nbyte)
 	////return -1 errno 32(EPIPE  Broken pipe,remote close)
 	int ret = write( fd,buf,nbyte );
 	//cout << "w fd:" << fd<<" ret:"<<ret<<" errno:"<<errno<<endl;
+	return ret;
+}
+
+static int WritePack(int fd,const void *buf, size_t nbyte)
+{
+	if (nbyte <= 0 || nbyte >= 0xffff){
+		return -1;
+	}
+	vector<unsigned char> v_buf(1);
+	v_buf[0] = 0xf0;
+	unsigned short ns; 
+	ns = htons(nbyte);
+	unsigned char*puc = (unsigned char*)&ns;
+	v_buf.insert(v_buf.end(), puc,puc+2);
+	puc = (unsigned char*)buf;
+	v_buf.insert(v_buf.end(),puc,puc+nbyte);
+	return WriteSocket(fd,&v_buf[0],v_buf.size());
+}
+
+//////发现一个完整包就返回包长度，否则返回0
+static int check_dq(deque<unsigned char>&dq)
+{
+	unsigned char h0;
+	unsigned short len;
+
+	while (dq.size() >= 3){
+		h0 = dq[0];
+		if (h0 != 0xf0){
+			dq.pop_front();
+			continue;
+		}
+		unsigned char *puc = (unsigned char *)(&len);
+		puc[0] = dq[1]; puc[1] = dq[2];
+		len = ntohs(len);
+		if (dq.size() >= len + 3){
+			return len;
+		}else{
+			return 0;
+		}
+	}
+	return 0;
+}
+
+static int get_pack(deque<unsigned char>&dq, vector<unsigned char>&vdata)
+{
+	vdata.clear();
+
+	int len = check_dq(dq);
+	if (len > 0){
+		vdata.insert(vdata.end(), dq.begin()+3, dq.begin()+3+len);
+		dq.erase(dq.begin(), dq.begin() + 3 + len);
+	}
+	
+	return len;
+}
+
+static int ReadPack(int fd, deque<unsigned char>&dq, vector<unsigned char>&vdata, int outms)
+{
+	int ret;
+	ret = get_pack(dq,vdata);//cout << "get_pack 1 ret:"<<ret<<endl;
+	if(ret > 0){
+		return ret;
+	}
+
+	struct timeval tv0;
+	gettimeofday (&tv0,NULL);
+	unsigned long long ms0 = tv0.tv_sec*1000+tv0.tv_usec/1000;
+	
+	int waitms = outms;
+
+	vector<unsigned char> v_buf(1024);
+
+	while(1){
+		ret = ReadSocket(fd,&v_buf[0],v_buf.size(),waitms);//cout << "read ret:"<<ret<<endl;
+		if(ret <= 0){///error timeout eof
+			return ret;
+		}else{
+			dq.insert(dq.end(),v_buf.begin(),v_buf.begin()+ret);
+			ret = get_pack(dq,vdata);//cout << "get_pack 2 ret:"<<ret<<endl;
+			
+			if(ret > 0){/////find ok
+				return ret;
+			}else{
+				if(outms > 0){
+					struct timeval tvn;
+					gettimeofday (&tvn,NULL);
+					unsigned long long msn = tvn.tv_sec*1000+tvn.tv_usec/1000;
+
+					waitms = ms0+outms-msn;
+
+					if(waitms<=0){
+						return -1;
+					}
+				}
+			}
+		}
+	}
+
 	return ret;
 }
 

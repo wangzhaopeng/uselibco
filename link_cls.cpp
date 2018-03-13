@@ -49,28 +49,34 @@ void link_cls::run(void)
 	int fd = m_fd;
 
 	//cout << "time "<<time(NULL)<<endl;
+	deque<unsigned char> dq_rbuf;
 	while(1){
-		char buf[1024]={0};
-		int ret = ReadSocket(fd,buf,sizeof(buf),-1);
+		//char buf[1024]={0};
+		//int ret = ReadSocket(fd,buf,sizeof(buf),-1);
+		vector<unsigned char> v_read;
+		int ret = ReadPack(fd,dq_rbuf,v_read,-1);
 		cout << "fd:"<<fd<<" rcv:"<<ret<<endl;
 		if( ret > 0 )
 		{
 
-			ret = WriteSocket( fd,buf,ret );////echo 
+			//ret = WriteSocket( fd,buf,ret );////echo 
+			ret = WritePack(fd,&v_read[0],v_read.size());
 
+#if 1
 			{/////create tcp client and connect to server
 			int fd2 = CreateTcpCliSocket(60001 ,"0",1*1000);
 			if(fd2> 0){
-				WriteSocket( fd2,buf,ret );
-				memset(buf,0,sizeof(buf));
-				ret = ReadSocket(fd2,buf,sizeof(buf),1000*5);
-				cout << "ret " << ret <<" "<< buf<<endl;
+				WritePack(fd2,&v_read[0],v_read.size());
+				deque<unsigned char> dq_rbuf2;
+				ret = ReadPack(fd2,dq_rbuf2,v_read,1000*5);
+				cout << "fd2 ret " << ret <<" "<< &v_read[0]<<endl;
 				if(ret>0){
-					ret = WriteSocket( fd,buf,ret );////get data and echo 
+					WritePack(fd,&v_read[0],v_read.size());
 				}
 				close(fd2);
 			}
 			}
+#endif
 		}
 		if( ret <= 0 )
 		{
