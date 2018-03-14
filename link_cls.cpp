@@ -50,7 +50,7 @@ void link_cls::run(void)
 		//char buf[1024]={0};
 		//int ret = ReadSocket(fd,buf,sizeof(buf),-1);
 		vector<unsigned char> v_read;
-		int ret = ReadPack(fd,dq_rbuf,v_read,1);
+		int ret = ReadPack(fd,dq_rbuf,v_read,-1);
 		cout << "fd:"<<fd<<" rcv:"<<ret<<endl;
 		if( ret > 0 )
 		{
