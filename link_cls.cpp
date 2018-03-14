@@ -12,6 +12,7 @@ using namespace std;
 
 #include "link_cls.h"
 #include "socket_tool.h"
+#include "thread_cls.h"
 
 static void * run_c(void*arg);
 
@@ -33,6 +34,7 @@ link_cls::link_cls(void *p_parent_thread,int fd)
 	mp_parent_thread = p_parent_thread;
 	m_fd = fd;
 	co_create( &m_co,NULL,run_c,this);
+	//co_create( &m_co,&((thread_cls*)p_parent_thread)->m_CoRoutineAttr,run_c,this);
 	co_resume( m_co );
 }
 

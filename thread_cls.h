@@ -27,6 +27,7 @@ public:
 
 	stCoRoutine_t *m_accept_co;
 	stCoRoutine_t *m_release_co;
+	stCoRoutineAttr_t m_CoRoutineAttr;
 };
 
 #endif

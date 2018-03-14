@@ -33,6 +33,10 @@ thread_cls::thread_cls(int id,int listen_fd){
 	m_listen = listen_fd;
 	m_accept_co = NULL;
 	m_release_co = NULL;
+
+	stShareStack_t* share_stack= co_alloc_sharestack(1, 1024 * 128);
+	m_CoRoutineAttr.stack_size = 0;
+	m_CoRoutineAttr.share_stack = share_stack;
 }
 
 thread_cls::~thread_cls(){
@@ -52,10 +56,12 @@ void thread_cls::run(void){
 
 	cout << "thread_id:"<<m_thread_id<<endl;
 	co_create( &m_accept_co,NULL,accept_routine_c,this);
+	//co_create( &m_accept_co,&m_CoRoutineAttr,accept_routine_c,this);
 	co_resume( m_accept_co );
 
 	
 	co_create( &m_release_co,NULL,release_routine_c,this);
+	//co_create( &m_release_co,&m_CoRoutineAttr,release_routine_c,this);
 	co_resume( m_release_co );
 
 	co_eventloop( co_get_epoll_ct(),0,0 );
@@ -76,8 +82,9 @@ void thread_cls::accept_routine(void){
 			socklen_t len = sizeof(addr);
 			int fd = co_accept(m_listen, (struct sockaddr *)&addr, &len);
 			if(fd<=0){
-				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<< " co_accept ret <= 0"<<endl;
-				exit(-1);
+				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<< " co_accept fd="<<fd<<" errno:"<<errno<<endl;
+				exit(-1);///errno: 24 EMFILE Too many open files
+				continue;
 			}
 			cout << "thread_id:"<<m_thread_id<<" accept fd:"<<fd<<endl;
 
@@ -87,14 +94,14 @@ void thread_cls::accept_routine(void){
 				shared_ptr<link_cls> p = make_shared<link_cls>(this,fd);
 				m_map_run[fd]=p;
 			}catch (exception& e){
-				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<<endl;
+				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<<" errno:"<<errno<<endl;
 				std::cerr << "Exception: " << e.what() << "\n";
 				exit(-1);
 			}
 		}else if(iret == 0){/////time out
 			
 		}else{
-				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<< " co_poll ret < 0"<<endl;
+				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<< " co_poll ret < 0 "<<" errno:"<<errno<<endl;
 				exit(-1);
 		}
 	}
