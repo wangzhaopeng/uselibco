@@ -65,25 +65,38 @@ int co_accept(int fd, struct sockaddr *addr, socklen_t *len);
 void thread_cls::accept_routine(void){
 	co_enable_hook_sys();
 	//printf("accept_routine\n");
-	for(;;){
-		struct sockaddr_in addr; //maybe sockaddr_un;
-		memset( &addr,0,sizeof(addr) );
-		socklen_t len = sizeof(addr);
-		//cout << "before co_accept"<<endl;
-		int fd = co_accept(m_listen, (struct sockaddr *)&addr, &len);
-		if( fd < 0 ){
-			struct pollfd pf = { 0 };
-			pf.fd = m_listen;
-			pf.events = (POLLIN|POLLERR|POLLHUP);
-			co_poll( co_get_epoll_ct(),&pf,1,-1);
-			continue;
+	while(1){
+		struct pollfd pf = { 0 };
+		pf.fd = m_listen;
+		pf.events = (POLLIN|POLLERR|POLLHUP);
+		int iret = co_poll( co_get_epoll_ct(),&pf,1,-1);
+		if(iret > 0){
+			struct sockaddr_in addr; //maybe sockaddr_un;
+			memset( &addr,0,sizeof(addr) );
+			socklen_t len = sizeof(addr);
+			int fd = co_accept(m_listen, (struct sockaddr *)&addr, &len);
+			if(fd<=0){
+				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<< " co_accept ret <= 0"<<endl;
+				exit(-1);
+			}
+			cout << "thread_id:"<<m_thread_id<<" accept fd:"<<fd<<endl;
+
+			SetNonBlock( fd );
+
+			try{
+				shared_ptr<link_cls> p = make_shared<link_cls>(this,fd);
+				m_map_run[fd]=p;
+			}catch (exception& e){
+				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<<endl;
+				std::cerr << "Exception: " << e.what() << "\n";
+				exit(-1);
+			}
+		}else if(iret == 0){/////time out
+			
+		}else{
+				cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<< " co_poll ret < 0"<<endl;
+				exit(-1);
 		}
-		cout << "thread_id:"<<m_thread_id<<" accept fd:"<<fd<<endl;
-
-		SetNonBlock( fd );
-
-		shared_ptr<link_cls> p = make_shared<link_cls>(this,fd);
-		m_map_run[fd]=p;
 	}
 }
 

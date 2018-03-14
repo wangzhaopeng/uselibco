@@ -26,7 +26,6 @@ link_cls::~link_cls(void)
 		co_release(m_co);
 		m_co = NULL;
 	}
-	
 }
 
 link_cls::link_cls(void *p_parent_thread,int fd)
@@ -36,9 +35,6 @@ link_cls::link_cls(void *p_parent_thread,int fd)
 	co_create( &m_co,NULL,run_c,this);
 	co_resume( m_co );
 }
-
-
-
 
 
 void put2release(void *thread,int fd);
@@ -54,7 +50,7 @@ void link_cls::run(void)
 		//char buf[1024]={0};
 		//int ret = ReadSocket(fd,buf,sizeof(buf),-1);
 		vector<unsigned char> v_read;
-		int ret = ReadPack(fd,dq_rbuf,v_read,-1);
+		int ret = ReadPack(fd,dq_rbuf,v_read,1);
 		cout << "fd:"<<fd<<" rcv:"<<ret<<endl;
 		if( ret > 0 )
 		{
@@ -94,8 +90,14 @@ void link_cls::run(void)
 
 static void * run_c(void*arg)
 {
-	link_cls *p_link = (link_cls *)arg;
-	p_link->run();
+	try{
+		link_cls *p_link = (link_cls *)arg;
+		p_link->run();
+	}catch (exception& e){
+		cerr << __FILE__<<" "<<__FUNCTION__<<" "<<__LINE__<<endl;
+		std::cerr << "Exception: " << e.what() << "\n";
+		exit(-1);
+	}
 
 	return 0;
 }

@@ -111,10 +111,14 @@ static int ReadSocket(int fd, void *buf, size_t nbyte, int outms)
 	struct pollfd pf = { 0 };
 	pf.fd = fd;
 	pf.events = (POLLIN|POLLERR|POLLHUP);
-	co_poll( co_get_epoll_ct(),&pf,1,outms);
-
-	int ret = read( fd,buf,nbyte );
-	return ret;
+	int ret = co_poll( co_get_epoll_ct(),&pf,1,outms);
+	if(ret > 0){
+		return read( fd,buf,nbyte );
+	}else if(ret == 0){/////time out
+		return -1;
+	}else{///err
+		return -1;
+	}
 }
 
 static int CoSleep(int ms)
@@ -131,9 +135,21 @@ static int CoSleep(int ms)
 static int WriteSocket(int fd, const void *buf, size_t nbyte)
 {
 	////return -1 errno 32(EPIPE  Broken pipe,remote close)
-	int ret = write( fd,buf,nbyte );
+	//int ret = write( fd,buf,nbyte );
 	//cout << "w fd:" << fd<<" ret:"<<ret<<" errno:"<<errno<<endl;
-	return ret;
+	int idx = 0;
+	unsigned char *puc = (unsigned char *)buf;
+	int ret;
+	while(idx<nbyte){
+		int ret = write( fd,puc+idx,nbyte-idx );
+		if(ret < 0){
+			return ret;
+		}else{
+			idx+=ret;
+			CoSleep(100);
+		}
+	}
+	return nbyte;
 }
 
 static int WritePack(int fd,const void *buf, size_t nbyte)
