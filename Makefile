@@ -13,7 +13,7 @@ LDFLAGS += -L/home/hadoop/libco/lib -lcolib -lpthread -ldl
 
 all:svr
 
-svr:example_echosvr.o link_cls.o thread_cls.o
+svr:main.o link_cls.o thread_cls.o
 	g++ -std=c++11 -o $@ $^ $(LDFLAGS)
 
 
